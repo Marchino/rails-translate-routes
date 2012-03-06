@@ -35,6 +35,14 @@ class RailsTranslateRoutes
   def default_locale? locale
     default_locale == locale.to_s
   end
+  
+  def routes_scope
+   @routes_scope ||= '' 
+  end
+  
+  def routes_scope=(scope = '')
+    @routes_scope = scope.to_s
+  end
 
   def prefix_on_default_locale
     @prefix_on_default_locale ||= I18n.default_locale.to_s
@@ -160,9 +168,9 @@ class RailsTranslateRoutes
   module Translator
     # Translate a specific RouteSet, usually Rails.application.routes, but can
     # be a RouteSet of a gem, plugin/engine etc.
-    def translate route_set
+    def translate route_set, i18n_routes_scope
       Rails.logger.info "Translating routes (default locale: #{default_locale})" if defined?(Rails) && defined?(Rails.logger)
-
+      self.routes_scope = i18n_routes_scope[:scope] if i18n_routes_scope.is_a? Hash
       # save original routes and clear route set
       original_routes = route_set.routes.dup                     # Array [routeA, routeB, ...]
 
@@ -304,7 +312,11 @@ class RailsTranslateRoutes
     end
 
     def translate_string str, locale
-      @dictionary[locale.to_s][str.to_s]
+      if routes_scope.present? 
+        @dictionary[locale.to_s][routes_scope][str.to_s]
+      else
+        @dictionary[locale.to_s][str.to_s]
+      end
     end
 
     private
@@ -345,7 +357,7 @@ module ActionDispatch
           r = RailsTranslateRoutes.init_from_file(File.join(Rails.root, file_path))
           r.prefix_on_default_locale = true if options && options[:prefix_on_default_locale] == true
           r.no_prefixes = true if options && options[:no_prefixes] == true
-          r.translate Rails.application.routes
+          r.translate Rails.application.routes, options
         end
 
         def i18n *locales
